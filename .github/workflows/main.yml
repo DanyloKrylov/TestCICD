@@ -1,0 +1,38 @@
+name: Update Version
+
+on:
+  pull_request:
+    types:
+      - closed
+
+jobs:
+  update_version:
+    runs-on: ubuntu-latest
+
+    if: github.event.pull_request.base.ref == 'release'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '14'
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Update version
+      run: |
+        CURRENT_VERSION=$(jq -r .version version.json)
+        NEW_VERSION=$(echo $CURRENT_VERSION | awk -F. '{print $4+1}')
+        NEW_VERSION="x.x.x.${NEW_VERSION}"
+        
+        jq --arg new_version "$NEW_VERSION" '.version = $new_version' version.json > version.json.tmp
+        mv version.json.tmp version.json
+
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git commit -m "Bump version to $NEW_VERSION" version.json
+        git push origin HEAD:${{ github.event.pull_request.head.ref }}
