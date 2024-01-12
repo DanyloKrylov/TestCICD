@@ -9,7 +9,9 @@ jobs:
   update_version:
     runs-on: ubuntu-latest
 
-    if: github.event.pull_request.base.ref == 'release'
+    if: |
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'release'
 
     steps:
     - name: Checkout code
@@ -25,14 +27,23 @@ jobs:
 
     - name: Update version
       run: |
+        # Парсим текущую версию
         CURRENT_VERSION=$(jq -r .version version.json)
+
+        # Извлекаем последнюю цифру и увеличиваем ее на 1
         NEW_VERSION=$(echo $CURRENT_VERSION | awk -F. '{print $4+1}')
-        NEW_VERSION="x.x.x.${NEW_VERSION}"
         
+        # Формируем новую версию
+        NEW_VERSION="x.x.x.${NEW_VERSION}"
+
+        # Заменяем версию в файле
         jq --arg new_version "$NEW_VERSION" '.version = $new_version' version.json > version.json.tmp
         mv version.json.tmp version.json
 
+        # Коммитим изменения с использованием токена из Secrets
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
-        git commit -m "Bump version to $NEW_VERSION" version.json
+        git remote set-url origin "https://${{ secrets.token }}@github.com/${{ github.repository }}.git"
+        git add version.json
+        git commit -m "Bump version to $NEW_VERSION"
         git push origin HEAD:${{ github.event.pull_request.head.ref }}
