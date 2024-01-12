@@ -1,38 +1,28 @@
-name: Update Version
-
+name: Update file on PR merge
 on:
   pull_request:
-    types:
-      - closed
+    branches:
+      - release
+    types: closed
 
 jobs:
-  update_version:
+  update_date:
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
-
-    if: github.event.pull_request.base.ref == 'release'
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
+      - name: checkout
+        uses: actions/checkout@v2
+        with:
+          # Fetch full depth, otherwise the last step overwrites the last commit's parent, essentially removing the graph.
+          fetch-depth: 0
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '14'
-
-    - name: Install dependencies
-      run: npm install
-
-    - name: Update version
-      run: |
-        CURRENT_VERSION=$(jq -r .version version.json)
-        NEW_VERSION=$(echo $CURRENT_VERSION | awk -F. '{print $4+1}')
-        NEW_VERSION="x.x.x.${NEW_VERSION}"
-        
-        jq --arg new_version "$NEW_VERSION" '.version = $new_version' version.json > version.json.tmp
-        mv version.json.tmp version.json
-
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git commit -m "Bump version to $NEW_VERSION" version.json
-        git push origin HEAD:${{ github.event.pull_request.head.ref }}
+      - name: Update version.txt
+        run: |
+          sed -ri 's/(.*FileVersion = )([0-9]+)(.*)/echo "\1$((\2+1))\3"/ge' version.txt
+      - name: Amend the last commit
+        run: |
+          git config --global user.email "gitbot@openrct2.org"
+          git config --global user.name "OpenRCT2 git bot"
+          git commit -a --amend --no-edit
+          git push --force-with-lease
+          echo "Complete"
