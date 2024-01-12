@@ -24,11 +24,13 @@ jobs:
         id: increment_version
         run: |
           current_version="${{ steps.read_version.outputs.version }}"
+          echo "Current version: $current_version"
           incremented_version=$(echo "$current_version" | awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g')
+          echo "Incremented version: $incremented_version"
           echo "::set-output name=version::$incremented_version"
 
       - name: Update version.json
-        run: jq --argjson new_version "${{ steps.increment_version.outputs.version | tonumber }}" '.version = $new_version' version.json > version.json.tmp && mv version.json.tmp version.json
+        run: jq --arg new_version "${{ steps.increment_version.outputs.version }}" '.version = $new_version' version.json > version.json.tmp && mv version.json.tmp version.json
 
       - name: Commit and push changes
         run: |
