@@ -13,19 +13,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Install jq
-        run: sudo apt-get install jq
+      - name: Install yq
+        run: sudo apt-get install yq
 
       - name: Read current version
         id: read_version
-        run: echo "::set-output name=version::$(jq -r .version version.json)"
+        run: echo "::set-output name=version::$(yq eval '.version' version.json)"
 
       - name: Increment version
         id: increment_version
         run: echo "::set-output name=version::$(echo ${{ steps.read_version.outputs.version }} | awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g')"
 
       - name: Update version.json
-        run: jq --arg new_version "${{ steps.increment_version.outputs.version }}" '.version = $new_version' version.json > version.json.tmp && mv version.json.tmp version.json
+        run: yq eval '.version = "${{ steps.increment_version.outputs.version }}"' -i version.json
 
       - name: Commit and push changes
         run: |
