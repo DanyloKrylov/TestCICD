@@ -7,26 +7,30 @@ on:
     types: closed
 
 jobs:
-  update_date:
+  update_version:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v2
 
+      - name: Install jq
+        run: sudo apt-get install jq
+
       - name: Read current version
         id: read_version
-        run: echo "::set-output name=version::$(cat version.txt)"
+        run: echo "::set-output name=version::$(jq -r .version version.json)"
 
       - name: Increment version
         id: increment_version
-        run: echo "::set-output name=version::$((${{ steps.read_version.outputs.version }} + 1))"
+        run: echo "::set-output name=version::$(echo ${{ steps.read_version.outputs.version }} | awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g')"
 
-      - name: Update version.txt
-        run: echo "${{ steps.increment_version.outputs.version }}" > version.txt
+      - name: Update version.json
+        run: jq --argjson new_version "${{ steps.increment_version.outputs.version }}" '.version = $new_version' version.json > version.json.tmp && mv version.json.tmp version.json
 
       - name: Commit and push changes
         run: |
           git config --global user.email "gitbot@openrct2.org"
           git config --global user.name "OpenRCT2 git bot"
-          git commit -am "Bump version to ${{ steps.increment_version.outputs.version }}"
+          git add version.json
+          git commit -m "Bump version to ${{ steps.increment_version.outputs.version }}"
           git push
