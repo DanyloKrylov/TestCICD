@@ -5,6 +5,7 @@ on:
       - release
     types: closed
 
+
 jobs:
   update_version:
     runs-on: ubuntu-latest
@@ -35,6 +36,9 @@ jobs:
         # Заменяем версию в файле
         jq --arg new_version "$NEW_VERSION" '.version = $new_version' version.json > version.json.tmp
         mv version.json.tmp version.json
+
+        # Pull latest changes from the remote repository
+        git pull origin ${{ github.event.pull_request.head.ref }}
 
         # Коммитим изменения
         git config --local user.email "action@github.com"
