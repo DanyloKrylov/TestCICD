@@ -1,38 +1,36 @@
-name: Update Version
+name: Update file on PR merge
 
 on:
   pull_request:
-    types:
-      - closed
+    branches:
+      - release
+    types: closed
 
 jobs:
   update_version:
     runs-on: ubuntu-latest
-
-    if: github.event.pull_request.base.ref == 'release'
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '14'
+      - name: Install jq
+        run: sudo apt-get install jq
 
-    - name: Install dependencies
-      run: npm install
+      - name: Read current version
+        id: read_version
+        run: echo "::set-output name=version::$(jq -r .version version.json)"
 
-    - name: Update version
-      run: |
-        CURRENT_VERSION=$(jq -r .version version.json)
-        NEW_VERSION=$(echo $CURRENT_VERSION | awk -F. '{print $4+1}')
-        NEW_VERSION="x.x.x.${NEW_VERSION}"
-        
-        jq --arg new_version "$NEW_VERSION" '.version = $new_version' version.json > version.json.tmp
-        mv version.json.tmp version.json
+      - name: Increment version
+        id: increment_version
+        run: echo "::set-output name=version::$(echo ${{ steps.read_version.outputs.version }} | awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g')"
 
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git commit -m "Bump version to $NEW_VERSION" version.json
-        git push origin HEAD:${{ github.event.pull_request.head.ref }}
+      - name: Update version.json
+        run: jq --argjson new_version "${{ steps.increment_version.outputs.version }}" '.version = $new_version' version.json > version.json.tmp && mv version.json.tmp version.json
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.email "gitbot@openrct2.org"
+          git config --global user.name "OpenRCT2 git bot"
+          git add version.json
+          git commit -m "Bump version to ${{ steps.increment_version.outputs.version }}"
+          git push
